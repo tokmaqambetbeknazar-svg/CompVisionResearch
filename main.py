@@ -16,7 +16,9 @@ MUSCLE_GROUPS = {
     },
     "2": {
         "name": "Мышцы спины",
-        "exercises": [],
+        "exercises": [
+            ("Подтягивания", "pullup_counter.py"),
+        ],
     },
     "3": {
         "name": "Мышцы ног и ягодиц",
@@ -38,7 +40,9 @@ MUSCLE_GROUPS = {
     },
     "6": {
         "name": "Мышцы живота и кора (пресс)",
-        "exercises": [],
+        "exercises": [
+            ("Скручивания", "crunch_counter.py"),
+        ],
     },
 }
 
