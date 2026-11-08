@@ -1,2 +1,2 @@
-# AI-Fitness
+# CompVisionResearch
 Our first project together
