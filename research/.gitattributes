@@ -1,0 +1,3 @@
+# Preserve exact feature bytes: metrics.json records their SHA-256.
+data/features.csv text eol=lf
+*.svg text eol=lf

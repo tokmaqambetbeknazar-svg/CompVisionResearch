@@ -1,0 +1,9 @@
+__pycache__/
+.venv/
+data/*positions_standardized.csv
+data/original_segmentation.csv
+data/Segmentation.csv
+data/joints_names.txt
+data/decode_rehab246_positions.py
+data/README.md
+data/source_commit.txt

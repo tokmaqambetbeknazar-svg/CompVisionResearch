@@ -1,0 +1,29 @@
+{
+  "seed": 42,
+  "test_people": [
+    8,
+    9
+  ],
+  "baseline": {
+    "n_estimators": 50,
+    "max_depth": 3,
+    "min_samples_leaf": 3
+  },
+  "grid": {
+    "n_estimators": [
+      50,
+      150
+    ],
+    "max_depth": [
+      3,
+      6,
+      null
+    ],
+    "min_samples_leaf": [
+      1,
+      3
+    ]
+  },
+  "selection_metric": "mean macro-F1 over leave-one-development-person-out folds; per-fold F1 uses labels present in truth or predictions",
+  "notes": "Test people are never used for parameter selection. Same features and split for both models."
+}
