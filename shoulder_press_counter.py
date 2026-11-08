@@ -12,15 +12,20 @@ from mediapipe.tasks.python import vision
 
 MODEL_PATH = "pose_landmarker_lite.task"
 VISIBILITY_THRESHOLD = 0.5
-STRAIGHT_ARM_ANGLE = 150
-BENT_ARM_ANGLE = 60
-ELBOW_DRIFT_THRESHOLD = 0.35
+BENT_ARM_ANGLE = 110
+EXTENDED_ARM_ANGLE = 155
 
 
-def calculate_angle(shoulder, elbow, wrist):
-    """Вычисляет угол в локте по трём точкам."""
-    upper_arm = (shoulder.x - elbow.x, shoulder.y - elbow.y)
-    forearm = (wrist.x - elbow.x, wrist.y - elbow.y)
+def calculate_angle(shoulder, elbow, wrist, frame_width, frame_height):
+    """Вычисляет угол локтя с учётом размеров изображения."""
+    upper_arm = (
+        (shoulder.x - elbow.x) * frame_width,
+        (shoulder.y - elbow.y) * frame_height,
+    )
+    forearm = (
+        (wrist.x - elbow.x) * frame_width,
+        (wrist.y - elbow.y) * frame_height,
+    )
 
     upper_length = math.hypot(*upper_arm)
     forearm_length = math.hypot(*forearm)
@@ -52,15 +57,11 @@ if not camera.isOpened():
     )
 
 repetitions = 0
-arm_is_extended = False
-arm_has_bent = False
-phase = "Start with your arm extended"
-feedback = "Show your right arm"
-
+arm_was_bent = False
 
 try:
     with vision.PoseLandmarker.create_from_options(options) as landmarker:
-        print("Покажи правую руку целиком. Нажми Q в окне видео, чтобы выйти.")
+        print("Встань боком к камере. Нажми Q в окне видео, чтобы выйти.")
 
         while True:
             success, frame = camera.read()
@@ -68,6 +69,7 @@ try:
             if not success:
                 raise RuntimeError("Не удалось получить изображение с камеры.")
 
+            height, width, _ = frame.shape
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = mp.Image(
                 image_format=mp.ImageFormat.SRGB,
@@ -78,8 +80,7 @@ try:
             result = landmarker.detect_for_video(image, timestamp_ms)
 
             angle = None
-            feedback = "Show your right arm"
-            feedback_color = (0, 0, 255)
+            phase = "Show your right arm"
 
             if result.pose_landmarks:
                 landmarks = result.pose_landmarks[0]
@@ -95,68 +96,58 @@ try:
                 )
 
                 if visible:
-                    angle = calculate_angle(shoulder, elbow, wrist)
+                    angle = calculate_angle(
+                        shoulder,
+                        elbow,
+                        wrist,
+                        width,
+                        height,
+                    )
 
                     if angle is not None:
                         if angle < BENT_ARM_ANGLE:
-                            if arm_is_extended:
-                                arm_has_bent = True
+                            arm_was_bent = True
+                            phase = "Press overhead"
 
-                            phase = "Extend your arm"
-
-                        elif angle > STRAIGHT_ARM_ANGLE:
-                            if arm_has_bent:
+                        elif angle > EXTENDED_ARM_ANGLE:
+                            if arm_was_bent:
                                 repetitions += 1
-                                arm_has_bent = False
+                                arm_was_bent = False
 
-                            arm_is_extended = True
-                            phase = "Curl your arm"
+                            phase = "Lower to shoulder level"
 
-                        arm_length = math.hypot(
-                            shoulder.x - elbow.x,
-                            shoulder.y - elbow.y,
-                        )
+                        elif arm_was_bent:
+                            phase = "Continue pressing"
 
-                        elbow_drift = (
-                            abs(elbow.x - shoulder.x) / arm_length
-                            if arm_length > 0
-                            else 0
-                        )
-
-                        if elbow_drift > ELBOW_DRIFT_THRESHOLD:
-                            feedback = "Try to keep your elbow still"
-                            feedback_color = (0, 165, 255)
                         else:
-                            feedback = "Elbow position looks steady"
-                            feedback_color = (0, 255, 0)
+                            phase = "Lower to shoulder level"
 
-                        height, width, _ = frame.shape
-                        screen_points = []
+                        points = []
 
                         for point in (shoulder, elbow, wrist):
                             x = int(point.x * width)
                             y = int(point.y * height)
-                            screen_points.append((x, y))
+                            points.append((x, y))
                             cv2.circle(frame, (x, y), 8, (0, 0, 255), -1)
 
                         cv2.line(
                             frame,
-                            screen_points[0],
-                            screen_points[1],
+                            points[0],
+                            points[1],
                             (0, 255, 0),
                             3,
                         )
                         cv2.line(
                             frame,
-                            screen_points[1],
-                            screen_points[2],
+                            points[1],
+                            points[2],
                             (0, 255, 0),
                             3,
                         )
                 else:
-                    phase = "Show your right arm"
+                    phase = "Show shoulder, elbow and wrist"
             else:
-                phase = "Step into the camera view"
+                phase = "Step into camera view"
 
             if angle is not None:
                 cv2.putText(
@@ -183,21 +174,12 @@ try:
                 phase,
                 (20, 120),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.65,
+                0.6,
                 (0, 255, 255),
                 2,
             )
-            cv2.putText(
-                frame,
-                feedback,
-                (20, 160),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                feedback_color,
-                2,
-            )
 
-            cv2.imshow("Biceps curl counter", frame)
+            cv2.imshow("Shoulder press counter", frame)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
@@ -217,7 +199,7 @@ with log_path.open("a", newline="", encoding="utf-8-sig") as file:
 
     writer.writerow([
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Сгибание на бицепс",
+        "Жим гантелей вверх",
         repetitions,
     ])
 
